@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Activity, ChevronRight, ChevronLeft, User, Scale, Target, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const steps = [
   { id: 1, title: "Basic Info", icon: User },
@@ -47,7 +49,9 @@ const dietaryPreferences = [
 export default function ProfileSetup() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [currentStep, setCurrentStep] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -58,6 +62,33 @@ export default function ProfileSetup() {
     healthConditions: [] as string[],
     dietaryPreferences: [] as string[],
   });
+
+  // Fetch existing profile data on mount
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+      if (data && !error) {
+        setFormData({
+          name: data.name || "",
+          age: data.age?.toString() || "",
+          gender: data.gender || "",
+          height: data.height?.toString() || "",
+          weight: data.weight?.toString() || "",
+          fitnessGoals: data.fitness_goals || [],
+          healthConditions: data.health_conditions || [],
+          dietaryPreferences: data.dietary_preferences || [],
+        });
+      }
+    }
+    fetchProfile();
+  }, [user]);
 
   const handleNext = () => {
     if (currentStep < 4) {
@@ -73,7 +104,43 @@ export default function ProfileSetup() {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to save your profile.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        name: formData.name,
+        age: formData.age ? parseInt(formData.age) : null,
+        gender: formData.gender || null,
+        height: formData.height ? parseFloat(formData.height) : null,
+        weight: formData.weight ? parseFloat(formData.weight) : null,
+        fitness_goals: formData.fitnessGoals,
+        health_conditions: formData.healthConditions,
+        dietary_preferences: formData.dietaryPreferences,
+      })
+      .eq("user_id", user.id);
+
+    setIsLoading(false);
+
+    if (error) {
+      toast({
+        title: "Error saving profile",
+        description: error.message,
+        variant: "destructive",
+      });
+      return;
+    }
+
     toast({
       title: "Profile Complete!",
       description: "Your wellness journey begins now.",
@@ -310,9 +377,15 @@ export default function ProfileSetup() {
               <ChevronLeft className="w-4 h-4" />
               Back
             </Button>
-            <Button variant="hero" onClick={handleNext} className="gap-2 group">
-              {currentStep === 4 ? "Complete Setup" : "Continue"}
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+            <Button variant="hero" onClick={handleNext} className="gap-2 group" disabled={isLoading}>
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full animate-spin" />
+              ) : (
+                <>
+                  {currentStep === 4 ? "Complete Setup" : "Continue"}
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </>
+              )}
             </Button>
           </div>
         </div>
