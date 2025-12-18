@@ -1,7 +1,10 @@
+import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Activity, TrendingUp, Utensils, Moon, Flame, Droplets, Heart, ChevronRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 const weightData = [
   { day: "Mon", weight: 72 },
@@ -9,7 +12,7 @@ const weightData = [
   { day: "Wed", weight: 71.5 },
   { day: "Thu", weight: 71.7 },
   { day: "Fri", weight: 71.2 },
-  { day: "Sat", weight: 71.0 },
+  { day: "Sat", weight: 70.8 },
   { day: "Sun", weight: 70.8 },
 ];
 
@@ -37,13 +40,42 @@ const quickActions = [
   { label: "View Progress", path: "/health", icon: TrendingUp },
 ];
 
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function Dashboard() {
+  const { user } = useAuth();
+  const [userName, setUserName] = useState("");
+
+  useEffect(() => {
+    async function fetchProfile() {
+      if (!user) return;
+
+      const { data } = await supabase
+        .from("profiles")
+        .select("name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (data?.name) {
+        setUserName(data.name.split(" ")[0]); // Use first name
+      }
+    }
+    fetchProfile();
+  }, [user]);
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
         {/* Header */}
         <div>
-          <h1 className="font-display text-3xl font-bold mb-2">Good morning, Alex!</h1>
+          <h1 className="font-display text-3xl font-bold mb-2">
+            {getGreeting()}, {userName || "there"}!
+          </h1>
           <p className="text-muted-foreground">Here's your wellness overview for today.</p>
         </div>
 
