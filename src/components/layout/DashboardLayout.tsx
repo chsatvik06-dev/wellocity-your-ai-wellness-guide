@@ -1,8 +1,9 @@
 import { Activity, Heart, Utensils, Moon, Dumbbell, Calendar, MessageSquare, User, LogOut, Menu, X } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/useAuth";
 
 const navItems = [
   { icon: Activity, label: "Dashboard", path: "/dashboard" },
@@ -17,7 +18,14 @@ const navItems = [
 
 export function DashboardNav() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { signOut } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <>
@@ -63,14 +71,16 @@ export function DashboardNav() {
                 <User className="w-5 h-5" />
                 <span className="font-medium">Profile</span>
               </Link>
-              <Link
-                to="/"
-                onClick={() => setMobileOpen(false)}
-                className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground"
+              <button
+                onClick={() => {
+                  setMobileOpen(false);
+                  handleLogout();
+                }}
+                className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground w-full text-left"
               >
                 <LogOut className="w-5 h-5" />
                 <span className="font-medium">Logout</span>
-              </Link>
+              </button>
             </div>
           </nav>
         </div>
@@ -118,13 +128,13 @@ export function DashboardNav() {
             <User className="w-5 h-5" />
             <span className="font-medium">Profile</span>
           </Link>
-          <Link
-            to="/"
-            className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-200"
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-3 px-4 py-3 rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-200 w-full text-left"
           >
             <LogOut className="w-5 h-5" />
             <span className="font-medium">Logout</span>
-          </Link>
+          </button>
         </div>
       </aside>
     </>

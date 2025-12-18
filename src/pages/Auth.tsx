@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Activity, Mail, Lock, User, Eye, EyeOff, ChevronRight } from "lucide-react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Auth() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, signUp, signIn } = useAuth();
   const [isSignUp, setIsSignUp] = useState(searchParams.get("signup") === "true");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -19,6 +21,13 @@ export default function Auth() {
     password: "",
     confirmPassword: "",
   });
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) {
+      navigate("/dashboard");
+    }
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,17 +44,40 @@ export default function Auth() {
       return;
     }
 
-    // Simulate auth (will be replaced with Supabase)
-    setTimeout(() => {
+    if (isSignUp) {
+      const { error } = await signUp(formData.email, formData.password, formData.name);
+      if (error) {
+        toast({
+          title: "Sign up failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
       toast({
-        title: isSignUp ? "Account created!" : "Welcome back!",
-        description: isSignUp 
-          ? "Your account has been created successfully." 
-          : "You have been signed in successfully.",
+        title: "Account created!",
+        description: "Your account has been created successfully.",
       });
-      setIsLoading(false);
       navigate("/profile/setup");
-    }, 1000);
+    } else {
+      const { error } = await signIn(formData.email, formData.password);
+      if (error) {
+        toast({
+          title: "Sign in failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+      toast({
+        title: "Welcome back!",
+        description: "You have been signed in successfully.",
+      });
+      navigate("/dashboard");
+    }
+    setIsLoading(false);
   };
 
   return (
