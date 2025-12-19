@@ -56,8 +56,39 @@ export default function Nutrition() {
   useEffect(() => {
     if (user) {
       fetchProfileAndGeneratePlan();
+      fetchTodaysIntake();
     }
   }, [user]);
+
+  const fetchTodaysIntake = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const { data, error } = await supabase
+        .from("nutrition_logs")
+        .select("*")
+        .eq("user_id", user?.id)
+        .gte("logged_at", today.toISOString());
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        const intake = data.reduce(
+          (acc, log) => ({
+            calories: acc.calories + (log.calories || 0),
+            protein: acc.protein + (Number(log.protein) || 0),
+            carbs: acc.carbs + (Number(log.carbs) || 0),
+            fat: acc.fat + (Number(log.fats) || 0),
+          }),
+          { calories: 0, protein: 0, carbs: 0, fat: 0 }
+        );
+        setCurrentIntake(intake);
+      }
+    } catch (error) {
+      console.error("Error fetching nutrition logs:", error);
+    }
+  };
 
   const fetchProfileAndGeneratePlan = async () => {
     try {
@@ -111,29 +142,16 @@ export default function Nutrition() {
       if (data.plan) {
         const newPlan = {
           ...data.plan,
-          mealPlan: data.plan.mealPlan.map((meal: Meal, index: number) => ({
+          mealPlan: data.plan.mealPlan.map((meal: Meal) => ({
             ...meal,
-            logged: index < 2, // First two meals logged by default for demo
+            logged: false,
           })),
         };
         setPlan(newPlan);
         setBmiInfo({ bmi: data.bmi, category: data.bmiCategory });
         
-        // Calculate current intake from logged meals
-        const loggedMeals = newPlan.mealPlan.filter((m: Meal) => m.logged);
-        const intake = loggedMeals.reduce(
-          (acc: typeof currentIntake, meal: Meal) => {
-            meal.items.forEach((item) => {
-              acc.calories += item.calories;
-              acc.protein += item.protein;
-              acc.carbs += item.carbs;
-              acc.fat += item.fat;
-            });
-            return acc;
-          },
-          { calories: 0, protein: 0, carbs: 0, fat: 0 }
-        );
-        setCurrentIntake(intake);
+        // Fetch today's nutrition logs to calculate current intake
+        await fetchTodaysIntake();
 
         toast({
           title: "Diet plan updated!",
@@ -150,6 +168,65 @@ export default function Nutrition() {
     } finally {
       setIsLoading(false);
       setIsGenerating(false);
+    }
+  };
+
+  const logMeal = async (mealIndex: number) => {
+    const meal = plan.mealPlan[mealIndex];
+    if (!meal || meal.logged) return;
+
+    try {
+      // Log each item in the meal
+      const logs = meal.items.map(item => ({
+        user_id: user?.id,
+        meal_type: meal.meal,
+        food_name: item.name,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fats: item.fat,
+      }));
+
+      const { error } = await supabase.from("nutrition_logs").insert(logs);
+      if (error) throw error;
+
+      // Update meal as logged
+      setPlan(prev => ({
+        ...prev,
+        mealPlan: prev.mealPlan.map((m, i) => 
+          i === mealIndex ? { ...m, logged: true } : m
+        ),
+      }));
+
+      // Update current intake
+      const mealTotals = meal.items.reduce(
+        (acc, item) => ({
+          calories: acc.calories + item.calories,
+          protein: acc.protein + item.protein,
+          carbs: acc.carbs + item.carbs,
+          fat: acc.fat + item.fat,
+        }),
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      );
+      
+      setCurrentIntake(prev => ({
+        calories: prev.calories + mealTotals.calories,
+        protein: prev.protein + mealTotals.protein,
+        carbs: prev.carbs + mealTotals.carbs,
+        fat: prev.fat + mealTotals.fat,
+      }));
+
+      toast({
+        title: "Meal logged!",
+        description: `${meal.meal} has been recorded.`,
+      });
+    } catch (error: any) {
+      console.error("Error logging meal:", error);
+      toast({
+        title: "Error logging meal",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -267,7 +344,7 @@ export default function Nutrition() {
             </div>
           ) : (
             <div className="space-y-4">
-              {plan.mealPlan.map((meal) => (
+              {plan.mealPlan.map((meal, mealIndex) => (
                 <div
                   key={meal.meal}
                   className={cn(
@@ -299,7 +376,7 @@ export default function Nutrition() {
                           Logged
                         </span>
                       ) : (
-                        <Button variant="ghost" size="sm" className="text-primary">
+                        <Button variant="ghost" size="sm" className="text-primary" onClick={() => logMeal(mealIndex)}>
                           Log <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
                       )}
