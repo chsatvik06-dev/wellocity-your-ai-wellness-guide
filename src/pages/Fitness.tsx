@@ -131,21 +131,22 @@ export default function Fitness() {
 
       if (data.plan) {
         const newPlan = data.plan;
-        // Mark first few exercises as completed for demo
-        const exercisesWithCompletion = newPlan.workout.exercises.map((ex: Exercise, index: number) => ({
+        const exercisesWithCompletion = newPlan.workout.exercises.map((ex: Exercise) => ({
           ...ex,
-          completed: index < 3,
+          completed: false,
         }));
         
-        // Mark some days as completed in weekly plan
-        const weeklyWithCompletion = newPlan.weeklyPlan.map((day: WeeklyDay, index: number) => ({
+        const weeklyWithCompletion = newPlan.weeklyPlan.map((day: WeeklyDay) => ({
           ...day,
-          completed: index < 3 && day.type !== "Rest",
+          completed: false,
         }));
 
         setPlan({ ...newPlan, weeklyPlan: weeklyWithCompletion });
         setExercises(exercisesWithCompletion);
         setBmiInfo({ bmi: data.bmi, category: data.bmiCategory });
+
+        // Fetch today's workout logs
+        await fetchTodaysWorkouts();
 
         toast({
           title: "Workout plan updated!",
@@ -165,10 +166,71 @@ export default function Fitness() {
     }
   };
 
-  const toggleExercise = (index: number) => {
+  const fetchTodaysWorkouts = async () => {
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const { data, error } = await supabase
+        .from("workout_logs")
+        .select("*")
+        .eq("user_id", user?.id)
+        .gte("completed_at", today.toISOString());
+
+      if (error) throw error;
+
+      // Mark completed exercises based on logged workouts
+      if (data && data.length > 0) {
+        const completedTypes = data.map(log => log.workout_type.toLowerCase());
+        setExercises(prev => prev.map(ex => ({
+          ...ex,
+          completed: completedTypes.some(type => ex.name.toLowerCase().includes(type) || type.includes(ex.name.toLowerCase()))
+        })));
+      }
+    } catch (error) {
+      console.error("Error fetching workouts:", error);
+    }
+  };
+
+  const toggleExercise = async (index: number) => {
+    const exercise = exercises[index];
+    const newCompleted = !exercise.completed;
+    
+    // Optimistically update UI
     setExercises((prev) =>
-      prev.map((ex, i) => (i === index ? { ...ex, completed: !ex.completed } : ex))
+      prev.map((ex, i) => (i === index ? { ...ex, completed: newCompleted } : ex))
     );
+
+    if (newCompleted) {
+      // Log the workout to database
+      try {
+        const { error } = await supabase.from("workout_logs").insert({
+          user_id: user?.id,
+          workout_type: exercise.name,
+          duration_minutes: parseInt(exercise.duration) || 5,
+          calories_burned: Math.round(plan.workout.calories / exercises.length),
+          notes: `${exercise.sets} sets × ${exercise.reps}`,
+        });
+
+        if (error) throw error;
+
+        toast({
+          title: "Exercise completed!",
+          description: `${exercise.name} logged successfully.`,
+        });
+      } catch (error: any) {
+        console.error("Error logging workout:", error);
+        // Revert on error
+        setExercises((prev) =>
+          prev.map((ex, i) => (i === index ? { ...ex, completed: false } : ex))
+        );
+        toast({
+          title: "Error logging exercise",
+          description: error.message || "Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
   };
 
   return (

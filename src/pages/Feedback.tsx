@@ -1,50 +1,85 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Star, MessageSquare, ThumbsUp, ThumbsDown, Send } from "lucide-react";
-import { useState } from "react";
+import { Star, MessageSquare, ThumbsUp, ThumbsDown, Send, RefreshCw } from "lucide-react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { format } from "date-fns";
 
 const feedbackCategories = [
-  { id: "diet", label: "Diet Plans", rating: 4 },
-  { id: "workout", label: "Workout Routines", rating: 5 },
-  { id: "ai", label: "AI Recommendations", rating: 4 },
-  { id: "tracking", label: "Health Tracking", rating: 5 },
-  { id: "period", label: "Period Tracker", rating: 4 },
-  { id: "app", label: "Overall App", rating: 4 },
+  { id: "diet", label: "Diet Plans" },
+  { id: "workout", label: "Workout Routines" },
+  { id: "ai", label: "AI Recommendations" },
+  { id: "tracking", label: "Health Tracking" },
+  { id: "period", label: "Period Tracker" },
+  { id: "app", label: "Overall App" },
 ];
 
-const recentFeedback = [
-  {
-    date: "Dec 10",
-    category: "Diet Plans",
-    rating: 5,
-    comment: "Love the personalized meal suggestions! Really helped me stay on track.",
-  },
-  {
-    date: "Dec 8",
-    category: "Workout Routines",
-    rating: 4,
-    comment: "Great variety of exercises. Would love more yoga options.",
-  },
-  {
-    date: "Dec 5",
-    category: "AI Recommendations",
-    rating: 5,
-    comment: "The AI really understands my preferences and adapts well.",
-  },
-];
+interface FeedbackEntry {
+  id: string;
+  category: string;
+  rating: number;
+  comment: string | null;
+  created_at: string;
+}
 
 export default function Feedback() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState("");
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState("");
   const [comfort, setComfort] = useState<"comfortable" | "neutral" | "uncomfortable" | null>(null);
+  const [recentFeedback, setRecentFeedback] = useState<FeedbackEntry[]>([]);
+  const [categoryRatings, setCategoryRatings] = useState<Record<string, number>>({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = () => {
+  useEffect(() => {
+    if (user) {
+      fetchFeedback();
+    }
+  }, [user]);
+
+  const fetchFeedback = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("feedback")
+        .select("*")
+        .eq("user_id", user?.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      setRecentFeedback(data || []);
+
+      // Calculate average rating per category
+      const ratings: Record<string, { total: number; count: number }> = {};
+      (data || []).forEach((fb) => {
+        if (!ratings[fb.category]) {
+          ratings[fb.category] = { total: 0, count: 0 };
+        }
+        ratings[fb.category].total += fb.rating;
+        ratings[fb.category].count += 1;
+      });
+
+      const avgRatings: Record<string, number> = {};
+      Object.keys(ratings).forEach((cat) => {
+        avgRatings[cat] = Math.round(ratings[cat].total / ratings[cat].count);
+      });
+      setCategoryRatings(avgRatings);
+    } catch (error) {
+      console.error("Error fetching feedback:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async () => {
     if (!selectedCategory || rating === 0) {
       toast({
         title: "Missing information",
@@ -54,16 +89,44 @@ export default function Feedback() {
       return;
     }
 
-    toast({
-      title: "Feedback submitted!",
-      description: "Thank you for helping us improve your experience.",
-    });
+    setIsSubmitting(true);
+    try {
+      const feedbackData = {
+        user_id: user?.id,
+        category: selectedCategory,
+        rating,
+        comment: comment || null,
+      };
 
-    // Reset form
-    setSelectedCategory("");
-    setRating(0);
-    setComment("");
-    setComfort(null);
+      const { error } = await supabase.from("feedback").insert(feedbackData);
+
+      if (error) throw error;
+
+      toast({
+        title: "Feedback submitted!",
+        description: "Thank you for helping us improve your experience.",
+      });
+
+      // Reset form and refresh data
+      setSelectedCategory("");
+      setRating(0);
+      setComment("");
+      setComfort(null);
+      fetchFeedback();
+    } catch (error: any) {
+      console.error("Error submitting feedback:", error);
+      toast({
+        title: "Error submitting feedback",
+        description: error.message || "Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const getCategoryLabel = (id: string) => {
+    return feedbackCategories.find((cat) => cat.id === id)?.label || id;
   };
 
   return (
@@ -162,8 +225,12 @@ export default function Feedback() {
             />
           </div>
 
-          <Button variant="hero" className="w-full gap-2" onClick={handleSubmit}>
-            <Send className="w-4 h-4" />
+          <Button variant="hero" className="w-full gap-2" onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
             Submit Feedback
           </Button>
         </div>
@@ -171,58 +238,81 @@ export default function Feedback() {
         {/* Current Ratings Overview */}
         <div className="glass rounded-2xl p-6">
           <h3 className="font-display text-xl font-semibold mb-6">Your Ratings Overview</h3>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {feedbackCategories.map((cat) => (
-              <div key={cat.id} className="p-4 rounded-xl bg-secondary/50">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-medium">{cat.label}</span>
-                  <span className="text-sm text-primary font-bold">{cat.rating}/5</span>
-                </div>
-                <div className="flex gap-1">
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <Star
-                      key={star}
-                      className={cn(
-                        "w-4 h-4",
-                        star <= cat.rating ? "fill-primary text-primary" : "text-muted-foreground"
-                      )}
-                    />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Feedback */}
-        <div className="glass rounded-2xl p-6">
-          <h3 className="font-display text-xl font-semibold mb-6">Your Recent Feedback</h3>
-          <div className="space-y-4">
-            {recentFeedback.map((feedback, index) => (
-              <div key={index} className="p-4 rounded-xl bg-secondary/50">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-3">
-                    <span className="px-2 py-1 rounded-md bg-primary/20 text-primary text-xs font-medium">
-                      {feedback.category}
-                    </span>
-                    <div className="flex gap-0.5">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {feedbackCategories.map((cat) => {
+                const avgRating = categoryRatings[cat.id] || 0;
+                return (
+                  <div key={cat.id} className="p-4 rounded-xl bg-secondary/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium">{cat.label}</span>
+                      <span className="text-sm text-primary font-bold">
+                        {avgRating > 0 ? `${avgRating}/5` : "-"}
+                      </span>
+                    </div>
+                    <div className="flex gap-1">
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
                           key={star}
                           className={cn(
-                            "w-3 h-3",
-                            star <= feedback.rating ? "fill-primary text-primary" : "text-muted-foreground"
+                            "w-4 h-4",
+                            star <= avgRating ? "fill-primary text-primary" : "text-muted-foreground"
                           )}
                         />
                       ))}
                     </div>
                   </div>
-                  <span className="text-xs text-muted-foreground">{feedback.date}</span>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Recent Feedback */}
+        <div className="glass rounded-2xl p-6">
+          <h3 className="font-display text-xl font-semibold mb-6">Your Recent Feedback</h3>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : recentFeedback.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">No feedback submitted yet.</p>
+          ) : (
+            <div className="space-y-4">
+              {recentFeedback.slice(0, 5).map((feedback) => (
+                <div key={feedback.id} className="p-4 rounded-xl bg-secondary/50">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-3">
+                      <span className="px-2 py-1 rounded-md bg-primary/20 text-primary text-xs font-medium">
+                        {getCategoryLabel(feedback.category)}
+                      </span>
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={cn(
+                              "w-3 h-3",
+                              star <= feedback.rating ? "fill-primary text-primary" : "text-muted-foreground"
+                            )}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(feedback.created_at), "MMM d")}
+                    </span>
+                  </div>
+                  {feedback.comment && (
+                    <p className="text-sm text-muted-foreground">{feedback.comment}</p>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground">{feedback.comment}</p>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* AI Note */}
