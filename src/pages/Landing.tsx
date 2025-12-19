@@ -84,26 +84,31 @@ export default function Landing() {
                 icon: Heart,
                 title: "BMI & Health Tracking",
                 description: "Calculate BMI, track weight history, and monitor vital health metrics with interactive visualizations.",
+                path: "/health",
               },
               {
                 icon: Utensils,
                 title: "AI Nutritionist",
                 description: "Dynamic diet plans based on your BMI, blood reports, deficiencies, and personal preferences.",
+                path: "/nutrition",
               },
               {
                 icon: Dumbbell,
                 title: "AI Fitness Trainer",
                 description: "Personalized workout routines that adapt to your goals, medical conditions, and progress.",
+                path: "/fitness",
               },
               {
                 icon: Calendar,
                 title: "Cycle & Menopause Care",
                 description: "Comfort-based nutrition and fitness recommendations aligned with your hormonal health.",
+                path: "/period",
               },
             ].map((feature, index) => (
-              <div
+              <Link
                 key={feature.title}
-                className="group p-6 rounded-2xl glass hover:bg-card/90 transition-all duration-300 hover:glow-sm animate-slide-up"
+                to="/auth?signup=true"
+                className="group p-6 rounded-2xl glass hover:bg-card/90 transition-all duration-300 hover:glow-sm animate-slide-up cursor-pointer"
                 style={{ animationDelay: `${index * 0.1}s` }}
               >
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-4 group-hover:bg-primary/20 transition-colors">
@@ -111,7 +116,7 @@ export default function Landing() {
                 </div>
                 <h3 className="font-display text-xl font-semibold mb-2">{feature.title}</h3>
                 <p className="text-muted-foreground text-sm">{feature.description}</p>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
