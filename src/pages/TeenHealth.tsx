@@ -1,13 +1,16 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Heart, Brain, Sparkles, Apple, Dumbbell, Moon, MessageCircle, TrendingUp } from "lucide-react";
+import { Heart, Brain, Sparkles, Apple, Dumbbell, Moon, MessageCircle, TrendingUp, Send } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const moodOptions = [
-  { emoji: "😊", label: "Great", color: "bg-green-500/20 border-green-500/50" },
-  { emoji: "🙂", label: "Good", color: "bg-blue-500/20 border-blue-500/50" },
-  { emoji: "😐", label: "Okay", color: "bg-yellow-500/20 border-yellow-500/50" },
-  { emoji: "😔", label: "Low", color: "bg-orange-500/20 border-orange-500/50" },
-  { emoji: "😢", label: "Struggling", color: "bg-red-500/20 border-red-500/50" },
+  { emoji: "😊", label: "Great", color: "bg-green-500/20 border-green-500/50", value: 5 },
+  { emoji: "🙂", label: "Good", color: "bg-blue-500/20 border-blue-500/50", value: 4 },
+  { emoji: "😐", label: "Okay", color: "bg-yellow-500/20 border-yellow-500/50", value: 3 },
+  { emoji: "😔", label: "Low", color: "bg-orange-500/20 border-orange-500/50", value: 2 },
+  { emoji: "😢", label: "Struggling", color: "bg-red-500/20 border-red-500/50", value: 1 },
 ];
 
 const teenTopics = [
@@ -37,17 +40,77 @@ const teenTopics = [
   },
 ];
 
-const weeklyMoodData = [
-  { day: "Mon", mood: 4 },
-  { day: "Tue", mood: 3 },
-  { day: "Wed", mood: 4 },
-  { day: "Thu", mood: 5 },
-  { day: "Fri", mood: 4 },
-  { day: "Sat", mood: 5 },
-  { day: "Sun", mood: 4 },
-];
+interface MoodEntry {
+  day: string;
+  mood: number;
+}
+
+interface ChatMessage {
+  role: "user" | "ai";
+  content: string;
+}
 
 export default function TeenHealth() {
+  const { toast } = useToast();
+  const [selectedMood, setSelectedMood] = useState<number | null>(null);
+  const [weeklyMoodData, setWeeklyMoodData] = useState<MoodEntry[]>([
+    { day: "Mon", mood: 0 },
+    { day: "Tue", mood: 0 },
+    { day: "Wed", mood: 0 },
+    { day: "Thu", mood: 0 },
+    { day: "Fri", mood: 0 },
+    { day: "Sat", mood: 0 },
+    { day: "Sun", mood: 0 },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
+    {
+      role: "ai",
+      content: "Hi there! 👋 I'm here to help you navigate the ups and downs of being a teenager. Feel free to ask me anything about mood swings, nutrition, fitness, or just life in general. Everything you share is private and judgment-free!",
+    },
+  ]);
+  const [isTyping, setIsTyping] = useState(false);
+
+  const handleMoodSelect = (moodValue: number) => {
+    setSelectedMood(moodValue);
+    
+    // Update today's mood in the weekly data
+    const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
+    setWeeklyMoodData((prev) =>
+      prev.map((entry) =>
+        entry.day === today ? { ...entry, mood: moodValue } : entry
+      )
+    );
+
+    const moodLabel = moodOptions.find((m) => m.value === moodValue)?.label || "";
+    toast({
+      title: "Mood logged!",
+      description: `You're feeling ${moodLabel.toLowerCase()} today. Thanks for checking in!`,
+    });
+  };
+
+  const handleSendMessage = async () => {
+    if (!chatInput.trim()) return;
+
+    const userMessage = chatInput.trim();
+    setChatInput("");
+    setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
+    setIsTyping(true);
+
+    // Simulate AI response (in production, this would call an edge function)
+    setTimeout(() => {
+      const responses = [
+        "That's a great question! During your teenage years, your body goes through many changes. It's completely normal to feel confused or overwhelmed sometimes. Remember to be patient with yourself!",
+        "I understand how you feel. Many teens experience similar things. One thing that might help is talking to a trusted adult or writing in a journal to express your thoughts.",
+        "Thanks for sharing that with me. It takes courage to open up. Remember that whatever you're going through, you're not alone, and things can get better with time and support.",
+        "That's really insightful of you to notice! Self-awareness is a powerful tool. Keep paying attention to how you feel and what affects your mood - this will help you manage your wellbeing.",
+      ];
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+      setChatMessages((prev) => [...prev, { role: "ai", content: randomResponse }]);
+      setIsTyping(false);
+    }, 1500);
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -64,9 +127,11 @@ export default function TeenHealth() {
             {moodOptions.map((mood) => (
               <button
                 key={mood.label}
+                onClick={() => handleMoodSelect(mood.value)}
                 className={cn(
                   "px-6 py-4 rounded-xl border-2 transition-all duration-200 hover:scale-105",
-                  mood.color
+                  mood.color,
+                  selectedMood === mood.value && "ring-2 ring-primary ring-offset-2 ring-offset-background"
                 )}
               >
                 <span className="text-3xl block mb-1">{mood.emoji}</span>
@@ -74,6 +139,11 @@ export default function TeenHealth() {
               </button>
             ))}
           </div>
+          {selectedMood && (
+            <p className="mt-4 text-sm text-muted-foreground">
+              Thanks for checking in! Your mood has been recorded.
+            </p>
+          )}
         </div>
 
         {/* Mood Trend */}
@@ -89,13 +159,21 @@ export default function TeenHealth() {
             {weeklyMoodData.map((day) => (
               <div key={day.day} className="flex flex-col items-center gap-2">
                 <div
-                  className="w-8 rounded-t-lg bg-primary transition-all duration-300"
-                  style={{ height: `${day.mood * 20}%` }}
+                  className={cn(
+                    "w-8 rounded-t-lg transition-all duration-300",
+                    day.mood > 0 ? "bg-primary" : "bg-secondary"
+                  )}
+                  style={{ height: day.mood > 0 ? `${day.mood * 20}%` : "10%" }}
                 />
                 <span className="text-xs text-muted-foreground">{day.day}</span>
               </div>
             ))}
           </div>
+          {weeklyMoodData.every((d) => d.mood === 0) && (
+            <p className="text-center text-sm text-muted-foreground mt-4">
+              Start logging your mood to see your weekly trend!
+            </p>
+          )}
         </div>
 
         {/* Topic Cards */}
@@ -123,7 +201,7 @@ export default function TeenHealth() {
           ))}
         </div>
 
-        {/* AI Chat Preview */}
+        {/* AI Chat */}
         <div className="glass rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
@@ -135,19 +213,40 @@ export default function TeenHealth() {
             </div>
           </div>
 
-          <div className="space-y-4 mb-4">
-            <div className="flex gap-3">
-              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                <Sparkles className="w-4 h-4 text-primary" />
+          <div className="space-y-4 mb-4 max-h-80 overflow-y-auto">
+            {chatMessages.map((msg, idx) => (
+              <div key={idx} className={cn("flex gap-3", msg.role === "user" && "flex-row-reverse")}>
+                {msg.role === "ai" && (
+                  <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                    <Sparkles className="w-4 h-4 text-primary" />
+                  </div>
+                )}
+                <div
+                  className={cn(
+                    "p-4 rounded-2xl max-w-[80%]",
+                    msg.role === "ai"
+                      ? "rounded-tl-none bg-secondary/50"
+                      : "rounded-tr-none bg-primary text-primary-foreground"
+                  )}
+                >
+                  <p className="text-sm">{msg.content}</p>
+                </div>
               </div>
-              <div className="p-4 rounded-2xl rounded-tl-none bg-secondary/50 max-w-[80%]">
-                <p className="text-sm">
-                  Hi there! 👋 I'm here to help you navigate the ups and downs of being a teenager. 
-                  Feel free to ask me anything about mood swings, nutrition, fitness, or just life in general. 
-                  Everything you share is private and judgment-free!
-                </p>
+            ))}
+            {isTyping && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                </div>
+                <div className="p-4 rounded-2xl rounded-tl-none bg-secondary/50">
+                  <div className="flex gap-1">
+                    <span className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-primary/50 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="flex gap-3">
@@ -155,10 +254,17 @@ export default function TeenHealth() {
               type="text"
               placeholder="Type your question here..."
               className="flex-1 h-12 px-4 rounded-xl bg-secondary border border-border focus:border-primary focus:outline-none transition-colors"
+              value={chatInput}
+              onChange={(e) => setChatInput(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
             />
-            <button className="h-12 px-6 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors">
+            <Button 
+              onClick={handleSendMessage}
+              className="h-12 px-6 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Send className="w-4 h-4 mr-2" />
               Send
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -183,7 +289,7 @@ export default function TeenHealth() {
                 icon: Dumbbell,
               },
             ].map((tip) => (
-              <div key={tip.title} className="p-4 rounded-xl bg-secondary/50">
+              <div key={tip.title} className="p-4 rounded-xl bg-secondary/50 hover:bg-secondary/70 transition-colors cursor-pointer">
                 <div className="flex items-center gap-2 mb-2">
                   <tip.icon className="w-4 h-4 text-primary" />
                   <h4 className="font-medium text-sm">{tip.title}</h4>
