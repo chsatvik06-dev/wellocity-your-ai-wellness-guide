@@ -1,9 +1,12 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Heart, Brain, Sparkles, Apple, Dumbbell, Moon, MessageCircle, TrendingUp, Send } from "lucide-react";
+import { Heart, Brain, Sparkles, Apple, Dumbbell, Moon, MessageCircle, TrendingUp, Send, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { format, startOfWeek, addDays } from "date-fns";
 
 const moodOptions = [
   { emoji: "😊", label: "Great", color: "bg-green-500/20 border-green-500/50", value: 5 },
@@ -43,6 +46,7 @@ const teenTopics = [
 interface MoodEntry {
   day: string;
   mood: number;
+  date: Date;
 }
 
 interface ChatMessage {
@@ -52,16 +56,9 @@ interface ChatMessage {
 
 export default function TeenHealth() {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [selectedMood, setSelectedMood] = useState<number | null>(null);
-  const [weeklyMoodData, setWeeklyMoodData] = useState<MoodEntry[]>([
-    { day: "Mon", mood: 0 },
-    { day: "Tue", mood: 0 },
-    { day: "Wed", mood: 0 },
-    { day: "Thu", mood: 0 },
-    { day: "Fri", mood: 0 },
-    { day: "Sat", mood: 0 },
-    { day: "Sun", mood: 0 },
-  ]);
+  const [weeklyMoodData, setWeeklyMoodData] = useState<MoodEntry[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
@@ -70,23 +67,125 @@ export default function TeenHealth() {
     },
   ]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const handleMoodSelect = (moodValue: number) => {
+  useEffect(() => {
+    if (user) {
+      fetchWeeklyMoods();
+    } else {
+      initializeWeekData();
+      setIsLoading(false);
+    }
+  }, [user]);
+
+  const initializeWeekData = () => {
+    const weekStart = startOfWeek(new Date());
+    const weekData = Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(weekStart, i);
+      return {
+        day: format(date, "EEE"),
+        mood: 0,
+        date,
+      };
+    });
+    setWeeklyMoodData(weekData);
+  };
+
+  const fetchWeeklyMoods = async () => {
+    try {
+      const weekStart = startOfWeek(new Date());
+      const weekEnd = addDays(weekStart, 7);
+
+      const { data, error } = await supabase
+        .from("teen_mood_logs")
+        .select("*")
+        .eq("user_id", user?.id)
+        .gte("logged_at", weekStart.toISOString())
+        .lt("logged_at", weekEnd.toISOString())
+        .order("logged_at", { ascending: true });
+
+      if (error) throw error;
+
+      const weekData = Array.from({ length: 7 }, (_, i) => {
+        const date = addDays(weekStart, i);
+        const dayStr = format(date, "EEE");
+        const log = data?.find(d => format(new Date(d.logged_at), "EEE") === dayStr);
+        return {
+          day: dayStr,
+          mood: log?.mood_value || 0,
+          date,
+        };
+      });
+
+      setWeeklyMoodData(weekData);
+
+      // Check if today has a mood logged
+      const today = format(new Date(), "EEE");
+      const todayLog = weekData.find(d => d.day === today);
+      if (todayLog?.mood) {
+        setSelectedMood(todayLog.mood);
+      }
+    } catch (error) {
+      console.error("Error fetching moods:", error);
+      initializeWeekData();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMoodSelect = async (moodValue: number) => {
     setSelectedMood(moodValue);
-    
-    // Update today's mood in the weekly data
-    const today = new Date().toLocaleDateString("en-US", { weekday: "short" });
-    setWeeklyMoodData((prev) =>
-      prev.map((entry) =>
-        entry.day === today ? { ...entry, mood: moodValue } : entry
-      )
-    );
+    setIsSaving(true);
 
     const moodLabel = moodOptions.find((m) => m.value === moodValue)?.label || "";
+    
+    // Update local state immediately
+    const today = format(new Date(), "EEE");
+    setWeeklyMoodData((prev) =>
+      prev.map((entry) => entry.day === today ? { ...entry, mood: moodValue } : entry)
+    );
+
+    if (user) {
+      try {
+        // Check if there's already a log for today
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const { data: existing } = await supabase
+          .from("teen_mood_logs")
+          .select("id")
+          .eq("user_id", user.id)
+          .gte("logged_at", todayStart.toISOString())
+          .lte("logged_at", todayEnd.toISOString())
+          .single();
+
+        if (existing) {
+          // Update existing
+          await supabase
+            .from("teen_mood_logs")
+            .update({ mood_value: moodValue, mood_label: moodLabel })
+            .eq("id", existing.id);
+        } else {
+          // Insert new
+          await supabase.from("teen_mood_logs").insert({
+            user_id: user.id,
+            mood_value: moodValue,
+            mood_label: moodLabel,
+          });
+        }
+      } catch (error) {
+        console.error("Error saving mood:", error);
+      }
+    }
+
     toast({
       title: "Mood logged!",
       description: `You're feeling ${moodLabel.toLowerCase()} today. Thanks for checking in!`,
     });
+    setIsSaving(false);
   };
 
   const handleSendMessage = async () => {
@@ -97,18 +196,32 @@ export default function TeenHealth() {
     setChatMessages((prev) => [...prev, { role: "user", content: userMessage }]);
     setIsTyping(true);
 
-    // Simulate AI response (in production, this would call an edge function)
-    setTimeout(() => {
-      const responses = [
+    try {
+      const { data, error } = await supabase.functions.invoke("health-chat", {
+        body: {
+          message: userMessage,
+          chatType: "teen",
+          userId: user?.id,
+          context: {
+            mood: selectedMood ? moodOptions.find(m => m.value === selectedMood)?.label : undefined,
+          },
+        },
+      });
+
+      if (error) throw error;
+      setChatMessages((prev) => [...prev, { role: "ai", content: data.response }]);
+    } catch (error: any) {
+      console.error("Error sending chat:", error);
+      // Fallback to local responses if AI fails
+      const fallbackResponses = [
         "That's a great question! During your teenage years, your body goes through many changes. It's completely normal to feel confused or overwhelmed sometimes. Remember to be patient with yourself!",
         "I understand how you feel. Many teens experience similar things. One thing that might help is talking to a trusted adult or writing in a journal to express your thoughts.",
         "Thanks for sharing that with me. It takes courage to open up. Remember that whatever you're going through, you're not alone, and things can get better with time and support.",
-        "That's really insightful of you to notice! Self-awareness is a powerful tool. Keep paying attention to how you feel and what affects your mood - this will help you manage your wellbeing.",
       ];
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      setChatMessages((prev) => [...prev, { role: "ai", content: randomResponse }]);
+      setChatMessages((prev) => [...prev, { role: "ai", content: fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)] }]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -128,6 +241,7 @@ export default function TeenHealth() {
               <button
                 key={mood.label}
                 onClick={() => handleMoodSelect(mood.value)}
+                disabled={isSaving}
                 className={cn(
                   "px-6 py-4 rounded-xl border-2 transition-all duration-200 hover:scale-105",
                   mood.color,
@@ -155,24 +269,32 @@ export default function TeenHealth() {
             </div>
             <TrendingUp className="w-5 h-5 text-green-400" />
           </div>
-          <div className="flex items-end justify-between h-32 px-4">
-            {weeklyMoodData.map((day) => (
-              <div key={day.day} className="flex flex-col items-center gap-2">
-                <div
-                  className={cn(
-                    "w-8 rounded-t-lg transition-all duration-300",
-                    day.mood > 0 ? "bg-primary" : "bg-secondary"
-                  )}
-                  style={{ height: day.mood > 0 ? `${day.mood * 20}%` : "10%" }}
-                />
-                <span className="text-xs text-muted-foreground">{day.day}</span>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              <div className="flex items-end justify-between h-32 px-4">
+                {weeklyMoodData.map((day) => (
+                  <div key={day.day} className="flex flex-col items-center gap-2">
+                    <div
+                      className={cn(
+                        "w-8 rounded-t-lg transition-all duration-300",
+                        day.mood > 0 ? "bg-primary" : "bg-secondary"
+                      )}
+                      style={{ height: day.mood > 0 ? `${day.mood * 20}%` : "10%" }}
+                    />
+                    <span className="text-xs text-muted-foreground">{day.day}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {weeklyMoodData.every((d) => d.mood === 0) && (
-            <p className="text-center text-sm text-muted-foreground mt-4">
-              Start logging your mood to see your weekly trend!
-            </p>
+              {weeklyMoodData.every((d) => d.mood === 0) && (
+                <p className="text-center text-sm text-muted-foreground mt-4">
+                  Start logging your mood to see your weekly trend!
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -260,11 +382,39 @@ export default function TeenHealth() {
             />
             <Button 
               onClick={handleSendMessage}
+              disabled={isTyping}
               className="h-12 px-6 rounded-xl bg-primary text-primary-foreground font-medium hover:bg-primary/90 transition-colors"
             >
               <Send className="w-4 h-4 mr-2" />
               Send
             </Button>
+          </div>
+        </div>
+
+        {/* Puberty Assistant Section */}
+        <div className="glass rounded-2xl p-6 border-2 border-primary/20">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-display text-xl font-semibold">Puberty Assistant</h3>
+              <p className="text-sm text-muted-foreground">Understanding your body's changes</p>
+            </div>
+          </div>
+          <p className="text-muted-foreground mb-4">
+            Have questions about puberty? Our AI assistant can help you understand physical changes, emotional changes, growth, nutrition, and self-care in a private, non-judgmental way.
+          </p>
+          <div className="grid md:grid-cols-4 gap-3">
+            {["Physical Changes", "Emotional Health", "Growth & Nutrition", "Self-Care Tips"].map((topic) => (
+              <button
+                key={topic}
+                onClick={() => setChatInput(`Tell me about ${topic.toLowerCase()} during puberty`)}
+                className="p-3 rounded-lg bg-secondary/50 text-sm hover:bg-secondary/70 transition-colors"
+              >
+                {topic}
+              </button>
+            ))}
           </div>
         </div>
 

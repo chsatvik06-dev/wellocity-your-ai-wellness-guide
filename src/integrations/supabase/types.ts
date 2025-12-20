@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_logs: {
+        Row: {
+          ai_response: string
+          chat_type: string
+          created_at: string
+          id: string
+          user_id: string | null
+          user_message: string
+        }
+        Insert: {
+          ai_response: string
+          chat_type: string
+          created_at?: string
+          id?: string
+          user_id?: string | null
+          user_message: string
+        }
+        Update: {
+          ai_response?: string
+          chat_type?: string
+          created_at?: string
+          id?: string
+          user_id?: string | null
+          user_message?: string
+        }
+        Relationships: []
+      }
+      daily_micronutrients: {
+        Row: {
+          calcium: number | null
+          created_at: string
+          date: string
+          id: string
+          iron: number | null
+          magnesium: number | null
+          user_id: string
+          vitamin_a: number | null
+          vitamin_b12: number | null
+          vitamin_c: number | null
+          vitamin_d: number | null
+          zinc: number | null
+        }
+        Insert: {
+          calcium?: number | null
+          created_at?: string
+          date: string
+          id?: string
+          iron?: number | null
+          magnesium?: number | null
+          user_id: string
+          vitamin_a?: number | null
+          vitamin_b12?: number | null
+          vitamin_c?: number | null
+          vitamin_d?: number | null
+          zinc?: number | null
+        }
+        Update: {
+          calcium?: number | null
+          created_at?: string
+          date?: string
+          id?: string
+          iron?: number | null
+          magnesium?: number | null
+          user_id?: string
+          vitamin_a?: number | null
+          vitamin_b12?: number | null
+          vitamin_c?: number | null
+          vitamin_d?: number | null
+          zinc?: number | null
+        }
+        Relationships: []
+      }
       feedback: {
         Row: {
           category: string
@@ -41,12 +113,59 @@ export type Database = {
         }
         Relationships: []
       }
+      menopause_profiles: {
+        Row: {
+          age: number | null
+          bone_density_concern: boolean | null
+          created_at: string
+          fatigue_level: string | null
+          gender: string | null
+          hormonal_changes: string | null
+          hot_flash_severity: string | null
+          id: string
+          stage: string
+          symptoms: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          age?: number | null
+          bone_density_concern?: boolean | null
+          created_at?: string
+          fatigue_level?: string | null
+          gender?: string | null
+          hormonal_changes?: string | null
+          hot_flash_severity?: string | null
+          id?: string
+          stage?: string
+          symptoms?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          age?: number | null
+          bone_density_concern?: boolean | null
+          created_at?: string
+          fatigue_level?: string | null
+          gender?: string | null
+          hormonal_changes?: string | null
+          hot_flash_severity?: string | null
+          id?: string
+          stage?: string
+          symptoms?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       menstrual_cycles: {
         Row: {
           created_at: string
           cycle_length: number | null
           end_date: string | null
+          flow_intensity: string | null
           id: string
+          mood: string | null
           notes: string | null
           start_date: string
           symptoms: string[] | null
@@ -56,7 +175,9 @@ export type Database = {
           created_at?: string
           cycle_length?: number | null
           end_date?: string | null
+          flow_intensity?: string | null
           id?: string
+          mood?: string | null
           notes?: string | null
           start_date: string
           symptoms?: string[] | null
@@ -66,7 +187,9 @@ export type Database = {
           created_at?: string
           cycle_length?: number | null
           end_date?: string | null
+          flow_intensity?: string | null
           id?: string
+          mood?: string | null
           notes?: string | null
           start_date?: string
           symptoms?: string[] | null
@@ -76,37 +199,67 @@ export type Database = {
       }
       nutrition_logs: {
         Row: {
+          calcium: number | null
           calories: number | null
           carbs: number | null
           fats: number | null
           food_name: string
           id: string
+          iron: number | null
           logged_at: string
+          magnesium: number | null
           meal_type: string
           protein: number | null
+          quantity: number | null
+          unit: string | null
           user_id: string
+          vitamin_a: number | null
+          vitamin_b12: number | null
+          vitamin_c: number | null
+          vitamin_d: number | null
+          zinc: number | null
         }
         Insert: {
+          calcium?: number | null
           calories?: number | null
           carbs?: number | null
           fats?: number | null
           food_name: string
           id?: string
+          iron?: number | null
           logged_at?: string
+          magnesium?: number | null
           meal_type: string
           protein?: number | null
+          quantity?: number | null
+          unit?: string | null
           user_id: string
+          vitamin_a?: number | null
+          vitamin_b12?: number | null
+          vitamin_c?: number | null
+          vitamin_d?: number | null
+          zinc?: number | null
         }
         Update: {
+          calcium?: number | null
           calories?: number | null
           carbs?: number | null
           fats?: number | null
           food_name?: string
           id?: string
+          iron?: number | null
           logged_at?: string
+          magnesium?: number | null
           meal_type?: string
           protein?: number | null
+          quantity?: number | null
+          unit?: string | null
           user_id?: string
+          vitamin_a?: number | null
+          vitamin_b12?: number | null
+          vitamin_c?: number | null
+          vitamin_d?: number | null
+          zinc?: number | null
         }
         Relationships: []
       }
@@ -152,6 +305,33 @@ export type Database = {
           updated_at?: string
           user_id?: string
           weight?: number | null
+        }
+        Relationships: []
+      }
+      teen_mood_logs: {
+        Row: {
+          id: string
+          logged_at: string
+          mood_label: string
+          mood_value: number
+          notes: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          logged_at?: string
+          mood_label: string
+          mood_value: number
+          notes?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          logged_at?: string
+          mood_label?: string
+          mood_value?: number
+          notes?: string | null
+          user_id?: string
         }
         Relationships: []
       }
