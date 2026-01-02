@@ -450,6 +450,134 @@ export default function TeenHealth() {
           </div>
         </div>
 
+        {/* Case Study Section */}
+        <div className="glass rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+              <Brain className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="font-display text-xl font-semibold">Case Study: Mood Swings and Puberty</h3>
+              <p className="text-sm text-muted-foreground">Learn from real experiences</p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Introduction */}
+            <div>
+              <h4 className="font-semibold text-primary mb-2">1. Introduction</h4>
+              <p className="text-sm text-muted-foreground">
+                Adolescence is a critical developmental stage marked by puberty and significant emotional changes. 
+                Hormonal fluctuations during this period often lead to mood swings, which can affect a teenager's 
+                behavior, academics, and relationships.
+              </p>
+            </div>
+
+            {/* Background */}
+            <div>
+              <h4 className="font-semibold text-primary mb-2">2. Background of the Case</h4>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div className="p-3 rounded-lg bg-secondary/50">
+                  <span className="text-muted-foreground">Name:</span> Karthik (name changed for privacy)
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/50">
+                  <span className="text-muted-foreground">Age:</span> 15 years
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/50">
+                  <span className="text-muted-foreground">Gender:</span> Male
+                </div>
+                <div className="p-3 rounded-lg bg-secondary/50">
+                  <span className="text-muted-foreground">Education:</span> 10th grade student
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground mt-3">
+                Karthik recently entered puberty and began experiencing noticeable emotional and behavioral changes.
+              </p>
+            </div>
+
+            {/* Problem Identification */}
+            <div>
+              <h4 className="font-semibold text-primary mb-2">3. Problem Identification</h4>
+              <p className="text-sm text-muted-foreground mb-2">Karthik experienced:</p>
+              <div className="grid md:grid-cols-2 gap-2">
+                {[
+                  "Frequent mood swings",
+                  "Increased irritability and anger",
+                  "Difficulty concentrating on studies",
+                  "Social withdrawal",
+                  "Low self-esteem and confusion"
+                ].map((problem, idx) => (
+                  <div key={idx} className="flex items-center gap-2 p-2 rounded-lg bg-orange-500/10 border border-orange-500/20">
+                    <div className="w-2 h-2 rounded-full bg-orange-400 shrink-0" />
+                    <span className="text-sm">{problem}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-sm text-muted-foreground mt-3">
+                These issues began affecting his academic performance and personal relationships.
+              </p>
+            </div>
+
+            {/* Causes */}
+            <div>
+              <h4 className="font-semibold text-primary mb-2">4. Causes and Contributing Factors</h4>
+              <div className="space-y-2">
+                {[
+                  "Hormonal changes during puberty",
+                  "Physical changes such as growth spurts and voice changes",
+                  "Psychological factors including identity development and emotional sensitivity",
+                  "Academic and peer pressure"
+                ].map((cause, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                    <div className="w-2 h-2 rounded-full bg-primary shrink-0" />
+                    <span className="text-sm">{cause}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Intervention */}
+            <div>
+              <h4 className="font-semibold text-primary mb-2">5. Intervention</h4>
+              <div className="grid md:grid-cols-2 gap-3">
+                {[
+                  { title: "Counseling", desc: "Puberty education and professional guidance" },
+                  { title: "Parental Support", desc: "Emotional support and open communication" },
+                  { title: "Healthy Lifestyle", desc: "Proper sleep, diet, and exercise habits" },
+                  { title: "Stress Management", desc: "Techniques for managing anxiety and stress" }
+                ].map((intervention, idx) => (
+                  <div key={idx} className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                    <h5 className="font-medium text-sm text-green-400 mb-1">{intervention.title}</h5>
+                    <p className="text-xs text-muted-foreground">{intervention.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Outcome */}
+            <div>
+              <h4 className="font-semibold text-primary mb-2">6. Outcome</h4>
+              <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+                <p className="text-sm">
+                  With proper guidance and support, Karthik showed <strong className="text-green-400">improved emotional control</strong>, 
+                  <strong className="text-green-400"> better focus in studies</strong>, and 
+                  <strong className="text-green-400"> increased self-confidence</strong>.
+                </p>
+              </div>
+            </div>
+
+            {/* Conclusion */}
+            <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
+              <h4 className="font-semibold text-primary mb-2">7. Conclusion</h4>
+              <p className="text-sm">
+                Mood swings during puberty are normal, but understanding and support play a vital role in helping 
+                teenagers cope effectively. If you're experiencing similar challenges, remember that you're not alone 
+                and help is always available.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Support Notice */}
         <div className="p-4 rounded-xl bg-primary/10 border border-primary/30">
           <p className="text-sm text-center">
