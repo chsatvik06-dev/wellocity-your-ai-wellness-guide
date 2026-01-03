@@ -17,3 +17,9 @@ verify_jwt = false
 
 [functions.phase-recommendations]
 verify_jwt = false
+
+[functions.send-reset-link]
+verify_jwt = false
+
+[functions.reset-password]
+verify_jwt = false
