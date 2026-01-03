@@ -1,5 +1,5 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { Utensils, Plus, Flame, Beef, Wheat, Droplet, Apple, ChevronRight, Sparkles, RefreshCw, Search, Edit2, Trash2, X } from "lucide-react";
+import { Utensils, Plus, Flame, Beef, Wheat, Droplet, Apple, ChevronRight, Sparkles, RefreshCw, Search, Edit2, Trash2, X, Calendar } from "lucide-react";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { format } from "date-fns";
 
 interface FoodItem {
   id?: string;
@@ -92,6 +95,8 @@ export default function Nutrition() {
   const [editingFood, setEditingFood] = useState<FoodItem | null>(null);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState("search");
+  const [logDate, setLogDate] = useState<Date>(new Date());
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -210,10 +215,29 @@ export default function Nutrition() {
       return;
     }
 
+    // Validate custom food has required fields
+    if (!selectedFood && customFood.food_name) {
+      if (!customFood.calories || customFood.calories <= 0) {
+        toast({ title: "Invalid calories", description: "Please enter a valid calorie amount.", variant: "destructive" });
+        return;
+      }
+    }
+
+    if (quantity <= 0) {
+      toast({ title: "Invalid quantity", description: "Please enter a valid quantity.", variant: "destructive" });
+      return;
+    }
+
     const food = selectedFood || customFood;
     const multiplier = quantity;
 
+    setIsSubmitting(true);
+
     try {
+      // Set the logged_at to the selected date with current time
+      const loggedAt = new Date(logDate);
+      loggedAt.setHours(new Date().getHours(), new Date().getMinutes(), new Date().getSeconds());
+
       const { error } = await supabase.from("nutrition_logs").insert({
         user_id: user?.id,
         food_name: food.food_name,
@@ -232,6 +256,7 @@ export default function Nutrition() {
         vitamin_b12: Math.round((food.vitamin_b12 || 0) * multiplier * 10) / 10,
         vitamin_c: Math.round((food.vitamin_c || 0) * multiplier * 10) / 10,
         vitamin_d: Math.round((food.vitamin_d || 0) * multiplier * 10) / 10,
+        logged_at: loggedAt.toISOString(),
       });
 
       if (error) throw error;
@@ -242,10 +267,13 @@ export default function Nutrition() {
       setCustomFood({});
       setQuantity(1);
       setSearchFood("");
+      setLogDate(new Date());
       await fetchTodaysIntake();
     } catch (error: any) {
       console.error("Error logging food:", error);
       toast({ title: "Error logging food", description: error.message || "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -341,19 +369,44 @@ export default function Nutrition() {
                   <DialogTitle className="font-display">Log Food</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-4">
-                  <div className="space-y-2">
-                    <Label>Meal Type</Label>
-                    <Select value={selectedMealType} onValueChange={setSelectedMealType}>
-                      <SelectTrigger className="h-12 bg-secondary border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="breakfast">🌅 Breakfast</SelectItem>
-                        <SelectItem value="lunch">☀️ Lunch</SelectItem>
-                        <SelectItem value="dinner">🌙 Dinner</SelectItem>
-                        <SelectItem value="snacks">🍎 Snacks</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Meal Type</Label>
+                      <Select value={selectedMealType} onValueChange={setSelectedMealType}>
+                        <SelectTrigger className="h-12 bg-secondary border-border">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="breakfast">🌅 Breakfast</SelectItem>
+                          <SelectItem value="lunch">☀️ Lunch</SelectItem>
+                          <SelectItem value="dinner">🌙 Dinner</SelectItem>
+                          <SelectItem value="snacks">🍎 Snacks</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="h-12 w-full justify-start text-left font-normal bg-secondary border-border"
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {format(logDate, "MMM d, yyyy")}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={logDate}
+                            onSelect={(date) => date && setLogDate(date)}
+                            disabled={(date) => date > new Date()}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
 
                   <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -467,8 +520,8 @@ export default function Nutrition() {
                     </TabsContent>
                   </Tabs>
 
-                  <Button variant="hero" className="w-full" onClick={logFood}>
-                    Add to Log
+                  <Button variant="hero" className="w-full" onClick={logFood} disabled={isSubmitting}>
+                    {isSubmitting ? "Adding..." : "Add to Log"}
                   </Button>
                 </div>
               </DialogContent>
